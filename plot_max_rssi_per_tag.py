@@ -33,8 +33,8 @@ for cond in os.listdir(target_dir):
 
 
 
-# 使用するtag_alias（mm）
 valid_tags = ['0mm', '40mm', '80mm', '120mm', '160mm', '200mm']
+valid_ccs = ['0', '600']
 def is_mm_tag(tag):
     tag = str(tag).replace(' ', '').replace('　', '')
     return tag in valid_tags
@@ -91,7 +91,7 @@ for csv_path in all_csv_files:
                 tag_max[tag] = rssi
     # x軸ラベル生成
     for tag in valid_tags:
-        label = f'{cc}cc_{tag}'
+        label = f'{tag}_{cc}cc'
         cc_tag_set.add(label)
         if tag in tag_max:
             csv_data[csv_name][label] = tag_max[tag]
@@ -103,7 +103,13 @@ def label_sort_key(label):
         return (int(m.group(1)), int(m.group(2)))
     return (float('inf'), float('inf'))
 
-x_labels = sorted(list(cc_tag_set), key=label_sort_key)
+def custom_x_labels():
+    labels = []
+    for mm in valid_tags:
+        for cc in valid_ccs:
+            labels.append(f'{mm}_{cc}cc')
+    return labels
+x_labels = custom_x_labels()
 print('x_labels:', x_labels)
 print('csv_data keys:', list(csv_data.keys()))
 for k, v in csv_data.items():
@@ -117,20 +123,23 @@ color_list = plt.cm.get_cmap('tab10').colors
 tag_color_map = {tag: color_list[i%len(color_list)] for i, tag in enumerate(valid_tags)}
 marker_list = ['o','s','^','D','v','*','x','+','1','2','3','4','8','p','h']
 
-plt.figure(figsize=(12,6))
+plt.figure(figsize=(12,10))
 
+
+# 全データをそのままプロット
 for tag in valid_tags:
-    print(f'--- tag: {tag} ---')
-    for label in x_labels:
-        cc = label.split('_')[0]
-        t = label.split('_')[1]
-        if t != tag:
-            continue
+    for cc in valid_ccs:
+        label = f'{tag}_{cc}cc'
         for i, csv_name in enumerate(csv_data.keys()):
             y = csv_data[csv_name].get(label, None)
-            print(f'  label: {label}, csv: {csv_name}, y: {y}')
             if y is not None:
                 plt.scatter(x_labels.index(label), y, color=tag_color_map[tag], marker=marker_list[i%len(marker_list)], label=f'{csv_name}' if tag==valid_tags[0] else None)
+
+# 「通信不可」表示
+for idx, label in enumerate(x_labels):
+    has_data = any(csv_data[csv_name].get(label, None) is not None for csv_name in csv_data.keys())
+    if not has_data:
+        plt.text(idx, 0, '通信不可', color='red', ha='center', va='bottom', fontsize=10, rotation=90)
 
 plt.xticks(range(len(x_labels)), x_labels, rotation=45)
 plt.xlabel('条件_tag_alias')
