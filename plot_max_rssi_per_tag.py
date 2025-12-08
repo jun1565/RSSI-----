@@ -133,7 +133,7 @@ for tag in valid_tags:
         for i, csv_name in enumerate(csv_data.keys()):
             y = csv_data[csv_name].get(label, None)
             if y is not None:
-                plt.scatter(x_labels.index(label), y, color=tag_color_map[tag], marker=marker_list[i%len(marker_list)], label=f'{csv_name}' if tag==valid_tags[0] else None)
+                plt.scatter(x_labels.index(label), y, color=tag_color_map[tag], marker='o', s=100, label=f'{csv_name}' if tag==valid_tags[0] else None)
 
 # 「通信不可」表示
 for idx, label in enumerate(x_labels):
