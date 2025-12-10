@@ -1,8 +1,8 @@
 import os
-import csv
 import re
 import matplotlib.pyplot as plt
-from collections import defaultdict
+import pandas as pd
+
 
 # dataディレクトリから被験者名一覧を取得
 data_dir = 'data'
@@ -33,6 +33,7 @@ for cond in os.listdir(target_dir):
 
 
 
+
 valid_tags = ['0mm', '40mm', '80mm', '120mm', '160mm', '200mm']
 valid_ccs = ['0', '600']
 def is_mm_tag(tag):
@@ -54,55 +55,37 @@ def get_cc_from_cond(cond_name):
     print(f'  [警告] 試験条件ccが取得できません: {cond_name}')
     return None
 
-# x軸ラベル生成とデータ格納
-x_labels = []
-tag_cc_label_list = [] # [(cc, tag_alias, label)]
-cc_tag_set = set()
-csv_data = defaultdict(dict) # {csv名: {label: rssi}}
 
-
+# pandasで全データをまとめて処理
+records = []
 for csv_path in all_csv_files:
-    # パス分割内容をデバッグ表示
     parts = csv_path.split(os.sep)
-    print(f'csv_path: {csv_path}')
-    print(f'parts: {parts}')
-    # 試験条件cc取得（data/被験者名/試験条件/日付/ファイル名）
-    # 例: parts[-5]=data, parts[-4]=被験者名, parts[-3]=試験条件, parts[-2]=日付, parts[-1]=ファイル名
     cond_name = parts[-3] if len(parts) >= 4 else ''
     cc = get_cc_from_cond(cond_name)
     if cc is None:
         print(f'  [警告] ccが取得できずスキップ: {csv_path}')
         continue
-    date_name = parts[-2] if len(parts) >= 3 else ''
     csv_name = os.path.basename(csv_path)
-    tag_max = {}
-    with open(csv_path, encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            tag = row.get('tag_alias')
-            tag = str(tag).replace(' ', '').replace('　', '')
-            if not is_mm_tag(tag):
-                continue
-            try:
-                rssi = float(row.get('rssi', '-9999'))
-            except:
-                continue
-            if tag not in tag_max or rssi > tag_max[tag]:
-                tag_max[tag] = rssi
-    # x軸ラベル生成
+    try:
+        df = pd.read_csv(csv_path, encoding='utf-8')
+    except Exception as e:
+        print(f'  [警告] CSV読込失敗: {csv_path}, {e}')
+        continue
     for tag in valid_tags:
-        label = f'{tag}_{cc}cc'
-        cc_tag_set.add(label)
-        if tag in tag_max:
-            csv_data[csv_name][label] = tag_max[tag]
+        tag_df = df[df['tag_alias'].astype(str).str.replace(' ', '').str.replace('　', '') == tag]
+        if not tag_df.empty:
+            max_rssi = tag_df['rssi'].max()
+            records.append({
+                'csv': csv_name,
+                'cc': cc,
+                'tag': tag,
+                'label': f'{tag}_{cc}cc',
+                'max_rssi': max_rssi
+            })
+
+result_df = pd.DataFrame(records)
 
 # x軸ラベルを指定順で並べる
-def label_sort_key(label):
-    m = re.match(r'(\d+)cc_(\d+)mm', label)
-    if m:
-        return (int(m.group(1)), int(m.group(2)))
-    return (float('inf'), float('inf'))
-
 def custom_x_labels():
     labels = []
     for mm in valid_tags:
@@ -111,44 +94,32 @@ def custom_x_labels():
     return labels
 x_labels = custom_x_labels()
 print('x_labels:', x_labels)
-print('csv_data keys:', list(csv_data.keys()))
-for k, v in csv_data.items():
-    print(f'csv: {k}, data: {v}')
+print('csvファイル一覧:', result_df["csv"].unique())
 
 
 
 # tag_aliasごとに色を固定
-import itertools
+
 color_list = plt.cm.get_cmap('tab10').colors
 tag_color_map = {tag: color_list[i%len(color_list)] for i, tag in enumerate(valid_tags)}
 marker_list = ['o','s','^','D','v','*','x','+','1','2','3','4','8','p','h']
 
 plt.figure(figsize=(12,10))
 
-
-
-# プロットが重ならないようにオフセットを与えて横に並べる
-num_csv = len(csv_data)
-offsets = []
-if num_csv > 1:
-    step = 0.6 / (num_csv-1) if num_csv > 1 else 0
-    offsets = [(-0.3 + i*step) for i in range(num_csv)]
-else:
-    offsets = [0]
-
-csv_names = list(csv_data.keys())
-for tag in valid_tags:
-    for cc in valid_ccs:
-        label = f'{tag}_{cc}cc'
-        for i, csv_name in enumerate(csv_names):
-            y = csv_data[csv_name].get(label, None)
-            if y is not None:
-                x_pos = x_labels.index(label) + offsets[i]
-                plt.scatter(x_pos, y, color=tag_color_map[tag], marker='o', s=100, label=f'{csv_name}' if tag==valid_tags[0] else None)
+# 各csvごとに同じx順で横並びでプロット
+csv_names = result_df["csv"].unique()
+for i, csv_name in enumerate(csv_names):
+    df_csv = result_df[result_df["csv"] == csv_name]
+    for j, label in enumerate(x_labels):
+        row = df_csv[df_csv["label"] == label]
+        tag = label.split('_')[0]  # 例: '40mm_0cc' → '40mm'
+        if not row.empty:
+            y = row["max_rssi"].values[0]
+            plt.scatter(j, y, color=tag_color_map[tag], marker='o')
 
 # 「通信不可」表示
 for idx, label in enumerate(x_labels):
-    has_data = any(csv_data[csv_name].get(label, None) is not None for csv_name in csv_data.keys())
+    has_data = any((result_df[result_df["label"] == label]["max_rssi"].notnull()))
     if not has_data:
         plt.text(idx, 0, '通信不可', color='red', ha='center', va='bottom', fontsize=10, rotation=90)
 
@@ -156,7 +127,7 @@ plt.xticks(range(len(x_labels)), x_labels, rotation=45)
 plt.xlabel('条件_tag_alias')
 plt.ylabel('Max RSSI')
 plt.title(f'{subject} 各測定ごとの条件・tag_alias別最大RSSI')
-# plt.legend()  # 凡例削除
+ # plt.legend()  # 凡例削除
 plt.grid(True)
 plt.tight_layout()
 output_png = f'max_rssi_plot_{subject}.png'
