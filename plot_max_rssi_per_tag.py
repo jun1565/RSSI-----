@@ -126,14 +126,25 @@ marker_list = ['o','s','^','D','v','*','x','+','1','2','3','4','8','p','h']
 plt.figure(figsize=(12,10))
 
 
-# 全データをそのままプロット
+
+# プロットが重ならないようにオフセットを与えて横に並べる
+num_csv = len(csv_data)
+offsets = []
+if num_csv > 1:
+    step = 0.6 / (num_csv-1) if num_csv > 1 else 0
+    offsets = [(-0.3 + i*step) for i in range(num_csv)]
+else:
+    offsets = [0]
+
+csv_names = list(csv_data.keys())
 for tag in valid_tags:
     for cc in valid_ccs:
         label = f'{tag}_{cc}cc'
-        for i, csv_name in enumerate(csv_data.keys()):
+        for i, csv_name in enumerate(csv_names):
             y = csv_data[csv_name].get(label, None)
             if y is not None:
-                plt.scatter(x_labels.index(label), y, color=tag_color_map[tag], marker='o', s=100, label=f'{csv_name}' if tag==valid_tags[0] else None)
+                x_pos = x_labels.index(label) + offsets[i]
+                plt.scatter(x_pos, y, color=tag_color_map[tag], marker='o', s=100, label=f'{csv_name}' if tag==valid_tags[0] else None)
 
 # 「通信不可」表示
 for idx, label in enumerate(x_labels):
