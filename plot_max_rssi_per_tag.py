@@ -110,8 +110,8 @@ csv_names = result_df["csv"].unique()
 plt.figure(figsize=(max(12, len(x_labels)*0.8), 6))
 
 # x軸の間隔とオフセット幅を明示的に分ける
-x_gap = 2  # x軸の条件間隔
-offset_width = 0.09  # 横並びの最大幅（±0.09）
+x_gap = 3  # x軸の条件間隔
+offset_width = 0.3  # 横並びの最大幅（±0.09）
 x_pos_list = [j * x_gap for j in range(len(x_labels))]
 
 csv_names = result_df["csv"].unique()
