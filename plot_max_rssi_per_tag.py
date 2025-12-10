@@ -106,7 +106,13 @@ marker_list = ['o','s','^','D','v','*','x','+','1','2','3','4','8','p','h']
 
 
 # --- グラフ描画: 各条件ごとに最大5測定分を横並びで表示 ---
+csv_names = result_df["csv"].unique()
 plt.figure(figsize=(max(12, len(x_labels)*0.8), 6))
+
+# x軸の間隔とオフセット幅を明示的に分ける
+x_gap = 2  # x軸の条件間隔
+offset_width = 0.09  # 横並びの最大幅（±0.09）
+x_pos_list = [j * x_gap for j in range(len(x_labels))]
 
 csv_names = result_df["csv"].unique()
 for j, label in enumerate(x_labels):
@@ -120,20 +126,33 @@ for j, label in enumerate(x_labels):
             y_list.append(None)
     # 横並びオフセット: 5測定なら[-0.24, -0.12, 0, 0.12, 0.24]
     n = len(y_list)
-    offsets = [(i - (n-1)/2)*0.12 for i in range(n)]
+    # Noneでない値だけを抽出
+    y_valid = [y for y in y_list if y is not None]
+    n_valid = len(y_valid)
+    # 実際に値がある測定の中央がx軸の中心に来るようにオフセット計算
+    if n_valid > 1:
+        offsets_valid = [offset_width * (i - (n_valid-1)/2) for i in range(n_valid)]
+    else:
+        offsets_valid = [0]
     tag = label.split('_')[0]
-    for offset, y in zip(offsets, y_list):
+    idx_valid = 0
+    for i, y in enumerate(y_list):
         if y is not None:
-            plt.scatter(j + offset, y, color=tag_color_map[tag], marker='o', s=80, edgecolors='black', linewidth=1.2, alpha=0.8, zorder=3)
+            plt.scatter(x_pos_list[j] + offsets_valid[idx_valid], y, color=tag_color_map[tag], marker='o', s=80, edgecolors='black', linewidth=1.2, alpha=0.8, zorder=3)
+            idx_valid += 1
     # 通信不可表示
     if all(v is None for v in y_list):
         plt.text(j, 0, '通信不可', color='red', ha='center', va='bottom', fontsize=10, rotation=90)
 
-plt.xticks(range(len(x_labels)), x_labels, rotation=45)
+offset_width = 0.09  # 横並びの最大幅（±0.09）
+x_pos_list = [j * x_gap for j in range(len(x_labels))]
+plt.xticks(x_pos_list, x_labels, rotation=45, ha='right', fontsize=12)
 plt.xlabel('条件_tag_alias')
 plt.ylabel('Max RSSI')
 plt.title(f'{subject} 各測定ごとの条件・tag_alias別最大RSSI')
 plt.grid(axis='y', alpha=0.3, linestyle='--')
+plt.xlim(-x_gap, x_pos_list[-1] + x_gap)
+plt.subplots_adjust(left=0.12, right=0.98, bottom=0.22)
 plt.tight_layout()
 output_png = f'max_rssi_plot_{subject}.png'
 plt.savefig(output_png)
