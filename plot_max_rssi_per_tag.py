@@ -1,6 +1,8 @@
 import os
 import re
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.rcParams['font.family'] = 'Hiragino Sans'  # macOS向け日本語フォント
 import pandas as pd
 
 
