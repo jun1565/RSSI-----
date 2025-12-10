@@ -156,7 +156,7 @@ plt.xticks(range(len(x_labels)), x_labels, rotation=45)
 plt.xlabel('条件_tag_alias')
 plt.ylabel('Max RSSI')
 plt.title(f'{subject} 各測定ごとの条件・tag_alias別最大RSSI')
-plt.legend()
+# plt.legend()  # 凡例削除
 plt.grid(True)
 plt.tight_layout()
 output_png = f'max_rssi_plot_{subject}.png'
