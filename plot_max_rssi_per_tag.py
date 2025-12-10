@@ -104,31 +104,36 @@ color_list = plt.cm.get_cmap('tab10').colors
 tag_color_map = {tag: color_list[i%len(color_list)] for i, tag in enumerate(valid_tags)}
 marker_list = ['o','s','^','D','v','*','x','+','1','2','3','4','8','p','h']
 
-plt.figure(figsize=(12,10))
 
-# 各csvごとに同じx順で横並びでプロット
+# --- グラフ描画: 各条件ごとに最大5測定分を横並びで表示 ---
+plt.figure(figsize=(max(12, len(x_labels)*0.8), 6))
+
 csv_names = result_df["csv"].unique()
-for i, csv_name in enumerate(csv_names):
-    df_csv = result_df[result_df["csv"] == csv_name]
-    for j, label in enumerate(x_labels):
-        row = df_csv[df_csv["label"] == label]
-        tag = label.split('_')[0]  # 例: '40mm_0cc' → '40mm'
+for j, label in enumerate(x_labels):
+    # このx軸ラベルに該当する全csvの値を取得
+    y_list = []
+    for i, csv_name in enumerate(csv_names):
+        row = result_df[(result_df["csv"] == csv_name) & (result_df["label"] == label)]
         if not row.empty:
-            y = row["max_rssi"].values[0]
-            plt.scatter(j, y, color=tag_color_map[tag], marker='o')
-
-# 「通信不可」表示
-for idx, label in enumerate(x_labels):
-    has_data = any((result_df[result_df["label"] == label]["max_rssi"].notnull()))
-    if not has_data:
-        plt.text(idx, 0, '通信不可', color='red', ha='center', va='bottom', fontsize=10, rotation=90)
+            y_list.append(row["max_rssi"].values[0])
+        else:
+            y_list.append(None)
+    # 横並びオフセット: 5測定なら[-0.24, -0.12, 0, 0.12, 0.24]
+    n = len(y_list)
+    offsets = [(i - (n-1)/2)*0.12 for i in range(n)]
+    tag = label.split('_')[0]
+    for offset, y in zip(offsets, y_list):
+        if y is not None:
+            plt.scatter(j + offset, y, color=tag_color_map[tag], marker='o', s=80, edgecolors='black', linewidth=1.2, alpha=0.8, zorder=3)
+    # 通信不可表示
+    if all(v is None for v in y_list):
+        plt.text(j, 0, '通信不可', color='red', ha='center', va='bottom', fontsize=10, rotation=90)
 
 plt.xticks(range(len(x_labels)), x_labels, rotation=45)
 plt.xlabel('条件_tag_alias')
 plt.ylabel('Max RSSI')
 plt.title(f'{subject} 各測定ごとの条件・tag_alias別最大RSSI')
- # plt.legend()  # 凡例削除
-plt.grid(True)
+plt.grid(axis='y', alpha=0.3, linestyle='--')
 plt.tight_layout()
 output_png = f'max_rssi_plot_{subject}.png'
 plt.savefig(output_png)
